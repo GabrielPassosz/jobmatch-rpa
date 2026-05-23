@@ -1,59 +1,30 @@
 from pathlib import Path
 import re
+import unicodedata
 from collections import Counter
 
 from pypdf import PdfReader
 from docx import Document
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 
-# ==========================================
-# PALAVRAS IGNORADAS
-# ==========================================
-
-STOPWORDS = {
+STOPWORDS_PT = [
     "de", "da", "do", "das", "dos", "em", "no", "na", "nos", "nas",
     "para", "por", "com", "sem", "uma", "um", "uns", "umas",
     "que", "e", "ou", "ao", "aos", "as", "os", "o", "a",
-    "se", "sua", "seu", "suas", "seus", "como", "mais",
-    "menos", "muito", "muita", "muitos", "muitas", "sobre",
-    "entre", "até", "apos", "após", "durante", "visando",
-    "contribuem", "efetivamente", "rotina", "trabalho",
+    "se", "sua", "seu", "suas", "seus", "como", "mais", "menos",
+    "muito", "muita", "muitos", "muitas", "sobre", "entre",
+    "apos", "após", "durante", "visando", "rotina", "trabalho",
     "experiencia", "experiência", "conhecimento", "atuando",
     "area", "área", "atuação", "atual", "conclusao", "conclusão",
-}
-
-
-# ==========================================
-# PADRÕES IMPORTANTES DO CURRÍCULO
-# ==========================================
-
-PADROES_CARGOS = [
-    r"área de atuação:\s*([^\n\r]+)",
-    r"area de atuacao:\s*([^\n\r]+)",
-    r"cargo:\s*([^\n\r]+)",
-    r"função:\s*([^\n\r]+)",
-    r"funcao:\s*([^\n\r]+)",
 ]
 
-
-PADROES_FORMACAO = [
-    r"cursando\s+([^\n\r]+)",
-    r"formação\s+([^\n\r]+)",
-    r"formacao\s+([^\n\r]+)",
-]
-
-
-# ==========================================
-# EXTRAIR TEXTO DO CURRÍCULO
-# ==========================================
 
 def extrair_texto_curriculo(caminho_curriculo):
     caminho = Path(caminho_curriculo)
 
     if not caminho.exists():
-        raise FileNotFoundError(
-            f"Currículo não encontrado: {caminho}"
-        )
+        raise FileNotFoundError(f"Currículo não encontrado: {caminho}")
 
     extensao = caminho.suffix.lower()
 
@@ -66,285 +37,332 @@ def extrair_texto_curriculo(caminho_curriculo):
 
         for pagina in reader.pages:
             texto = pagina.extract_text()
-
             if texto:
                 textos.append(texto)
 
-        return "\n".join(textos)
+        return corrigir_texto_espacado("\n".join(textos))
 
     if extensao == ".docx":
         documento = Document(str(caminho))
-        textos = []
-
-        for paragrafo in documento.paragraphs:
-            if paragrafo.text.strip():
-                textos.append(paragrafo.text)
-
-        return "\n".join(textos)
-
-    raise ValueError(
-        "Formato de currículo não suportado. Use .txt, .pdf ou .docx."
-    )
-
-
-# ==========================================
-# NORMALIZAR TEXTO
-# ==========================================
-
-def normalizar_texto(texto):
-    texto = texto.lower()
-
-    substituicoes = {
-        "á": "a",
-        "à": "a",
-        "ã": "a",
-        "â": "a",
-        "é": "e",
-        "ê": "e",
-        "í": "i",
-        "ó": "o",
-        "ô": "o",
-        "õ": "o",
-        "ú": "u",
-        "ç": "c",
-    }
-
-    for original, novo in substituicoes.items():
-        texto = texto.replace(original, novo)
-
-    texto = re.sub(r"\s+", " ", texto)
-
-    return texto.strip()
-
-
-# ==========================================
-# LIMPAR FRASE
-# ==========================================
-
-def limpar_frase(texto):
-    texto = re.sub(r"[^a-zA-ZÀ-ÿ0-9\s/-]", " ", texto)
-    texto = re.sub(r"\s+", " ", texto)
-    return texto.strip()
-
-
-# ==========================================
-# EXTRAIR CARGOS DO CURRÍCULO
-# ==========================================
-
-def extrair_cargos(texto_curriculo):
-    cargos = []
-    texto_original = texto_curriculo
-
-    for padrao in PADROES_CARGOS:
-        matches = re.findall(
-            padrao,
-            texto_original,
-            flags=re.IGNORECASE
+        return "\n".join(
+            p.text for p in documento.paragraphs if p.text.strip()
         )
 
-        for match in matches:
-            cargo = limpar_frase(match)
+    raise ValueError("Formato não suportado. Use .txt, .pdf ou .docx.")
 
-            if cargo and len(cargo) >= 3:
-                cargos.append(cargo)
+def corrigir_texto_espacado(texto):
+    linhas_corrigidas = []
+
+    for linha in texto.splitlines():
+        linha_original = linha
+
+        letras = re.findall(r"[A-Za-zÀ-ÿ]", linha)
+        palavras_normais = re.findall(r"[A-Za-zÀ-ÿ]{2,}", linha)
+
+        if len(letras) >= 6 and len(palavras_normais) <= 1:
+            linha = re.sub(r"(?<=\w)\s(?=\w)", "", linha)
+
+        linhas_corrigidas.append(linha)
+
+    texto_corrigido = "\n".join(linhas_corrigidas)
+
+    texto_corrigido = re.sub(
+        r"(?<=\b[A-Za-zÀ-ÿ])\s(?=[A-Za-zÀ-ÿ]\b)",
+        "",
+        texto_corrigido,
+    )
+
+    return texto_corrigido
+
+
+def normalizar_texto(texto):
+    texto = corrigir_texto_espacado(texto)
+
+    texto = texto.lower()
+    texto = unicodedata.normalize("NFD", texto)
+    texto = texto.encode("ascii", "ignore").decode("utf-8")
+
+    texto = re.sub(r"[^a-zA-Z0-9\s]", " ", texto)
+    texto = re.sub(r"\s+", " ", texto)
+
+    return texto.strip()
+
+
+def dividir_em_blocos(texto):
+    linhas = [linha.strip() for linha in texto.splitlines() if linha.strip()]
+    blocos = []
+
+    bloco_atual = []
+
+    for linha in linhas:
+        if re.search(r"experiencias|experiências|formacao|formação|habilidades", linha, re.I):
+            if bloco_atual:
+                blocos.append(" ".join(bloco_atual))
+                bloco_atual = []
+
+        bloco_atual.append(linha)
+
+    if bloco_atual:
+        blocos.append(" ".join(bloco_atual))
+
+    return blocos
+
+
+def extrair_cargos_explicitos(texto):
+    padroes = [
+        r"área de atuação:\s*([^\n\r]+)",
+        r"area de atuacao:\s*([^\n\r]+)",
+        r"cargo:\s*([^\n\r]+)",
+        r"função:\s*([^\n\r]+)",
+        r"funcao:\s*([^\n\r]+)",
+    ]
+
+    cargos = []
+
+    for padrao in padroes:
+        encontrados = re.findall(padrao, texto, flags=re.I)
+
+        for item in encontrados:
+            item = item.strip()
+            item = re.sub(r"\s+", " ", item)
+
+            if len(item) >= 4:
+                cargos.append(item)
 
     return remover_duplicados(cargos)
 
 
-# ==========================================
-# EXTRAIR FORMAÇÕES
-# ==========================================
+def extrair_frases_importantes(texto):
+    linhas = [linha.strip() for linha in texto.splitlines() if linha.strip()]
+    frases = []
 
-def extrair_formacoes(texto_curriculo):
-    formacoes = []
+    for linha in linhas:
+        linha_limpa = re.sub(r"\s+", " ", linha)
 
-    for padrao in PADROES_FORMACAO:
-        matches = re.findall(
-            padrao,
-            texto_curriculo,
-            flags=re.IGNORECASE
-        )
+        if len(linha_limpa.split()) >= 3:
+            frases.append(linha_limpa)
 
-        for match in matches:
-            formacao = limpar_frase(match)
-
-            if formacao and len(formacao) >= 3:
-                formacoes.append(formacao)
-
-    return remover_duplicados(formacoes)
+    return frases
 
 
-# ==========================================
-# EXTRAIR PALAVRAS-CHAVE RELEVANTES
-# ==========================================
+def extrair_keywords_tfidf(texto, limite=20):
+    texto_normalizado = normalizar_texto(texto)
 
-def extrair_palavras_chave(texto_curriculo, limite=25):
-    texto = normalizar_texto(texto_curriculo)
+    # ==========================================
+    # EXTRAIR PALAVRAS MANUALMENTE
+    # ==========================================
 
     palavras = re.findall(
-        r"\b[a-zA-ZÀ-ÿ]{4,}\b",
-        texto
+        r"\b[a-zA-Z]{4,}\b",
+        texto_normalizado
     )
 
     palavras_filtradas = []
 
     for palavra in palavras:
-        if palavra not in STOPWORDS:
-            palavras_filtradas.append(palavra)
 
-    contagem = Counter(palavras_filtradas)
-
-    palavras_relevantes = [
-        palavra
-        for palavra, _ in contagem.most_common(limite)
-    ]
-
-    return palavras_relevantes
-
-
-# ==========================================
-# EXTRAIR FRASES RELEVANTES
-# ==========================================
-
-def extrair_frases_relevantes(texto_curriculo):
-    linhas = texto_curriculo.splitlines()
-    frases = []
-
-    palavras_indicadoras = [
-        "atendimento",
-        "cadastro",
-        "agendamento",
-        "recepção",
-        "recepcao",
-        "paciente",
-        "cliente",
-        "consultório",
-        "consultorio",
-        "exames",
-        "administrativo",
-        "qualidade",
-        "vendas",
-        "crm",
-        "excel",
-        "whatsapp",
-        "sistema",
-        "hospital",
-        "clínica",
-        "clinica",
-        "fonoaudiologia",
-    ]
-
-    for linha in linhas:
-        linha_limpa = limpar_frase(linha)
-
-        if len(linha_limpa) < 5:
+        if palavra in STOPWORDS_PT:
             continue
 
-        linha_normalizada = normalizar_texto(linha_limpa)
+        if contem_numero_telefone_ou_email(
+            palavra
+        ):
+            continue
 
-        for palavra in palavras_indicadoras:
-            if normalizar_texto(palavra) in linha_normalizada:
-                frases.append(linha_limpa)
-                break
+        palavras_filtradas.append(
+            palavra
+        )
 
-    return remover_duplicados(frases)
+    # ==========================================
+    # VALIDAR PALAVRAS
+    # ==========================================
 
+    if not palavras_filtradas:
 
-# ==========================================
-# GERAR TERMOS DE BUSCA PELO CURRÍCULO
-# ==========================================
+        raise ValueError(
+            "Nenhuma palavra relevante foi encontrada no currículo."
+        )
+
+    # ==========================================
+    # CONTAGEM
+    # ==========================================
+
+    contagem = Counter(
+        palavras_filtradas
+    )
+
+    palavras_ordenadas = [
+        palavra
+        for palavra, _
+        in contagem.most_common(limite)
+    ]
+
+    # ==========================================
+    # TF-IDF COMO COMPLEMENTO
+    # ==========================================
+
+    try:
+
+        blocos = dividir_em_blocos(
+            texto
+        )
+
+        if len(blocos) >= 2:
+
+            vectorizer = TfidfVectorizer(
+                lowercase=True,
+                ngram_range=(1, 2),
+                max_features=40,
+            )
+
+            matriz = vectorizer.fit_transform(
+                blocos
+            )
+
+            termos_tfidf = (
+                vectorizer
+                .get_feature_names_out()
+            )
+
+            for termo in termos_tfidf:
+
+                termo = termo.strip()
+
+                if (
+                    termo not in palavras_ordenadas
+                    and len(termo) >= 4
+                ):
+
+                    palavras_ordenadas.append(
+                        termo
+                    )
+
+    except Exception:
+        pass
+
+    return remover_duplicados(
+        palavras_ordenadas
+    )[:limite]
+
 
 def gerar_termos_busca_curriculo(texto_curriculo, limite=8):
-    texto_normalizado = normalizar_texto(texto_curriculo)
+    if not texto_curriculo or len(texto_curriculo.strip()) < 50:
+        raise ValueError(
+            "O texto extraído do currículo está vazio ou muito curto."
+        )
+
+    cargos = extrair_cargos_explicitos(texto_curriculo)
+    keywords = extrair_keywords_tfidf(texto_curriculo)
+
+    termos_busca = []
+
+    for cargo in cargos:
+        termos_busca.append(limpar_termo_busca(cargo))
+
+    termos_profissionais = gerar_termos_profissionais_por_contexto(
+        texto_curriculo,
+        keywords,
+    )
+
+    termos_busca.extend(termos_profissionais)
+
+    for keyword in keywords:
+        if len(keyword.split()) >= 2:
+            termos_busca.append(limpar_termo_busca(keyword))
+
+    termos_busca = limpar_lista_termos(termos_busca)
+
+    if not termos_busca:
+        raise ValueError(
+            "Nenhum termo relevante foi encontrado no currículo. "
+            "Verifique se o PDF está sendo lido corretamente ou se o currículo "
+            "possui experiências, cargos, formação e atividades profissionais."
+        )
+
+    return termos_busca[:limite]
+
+
+def gerar_termos_profissionais_por_contexto(texto, keywords):
+    texto_normalizado = normalizar_texto(texto)
+    keywords_normalizadas = [normalizar_texto(k) for k in keywords]
+
+    contexto = " ".join(keywords_normalizadas) + " " + texto_normalizado
 
     termos = []
 
-    # Cargos explícitos do currículo
-    cargos = extrair_cargos(texto_curriculo)
-    termos.extend(cargos)
+    grupos = {
+        "Auxiliar Administrativo": [
+            "administrativo", "cadastro", "planilhas", "excel", "contrato",
+            "chamados", "organizacao"
+        ],
+        "Recepcionista": [
+            "recepcao", "primeiro atendimento", "atendimento", "cliente",
+            "paciente"
+        ],
+        "Atendente Clínica": [
+            "paciente", "consulta", "consultorio", "clinica", "guias",
+            "agendamento"
+        ],
+        "Auxiliar de Consultório": [
+            "consultorio", "exames", "tonometria", "retinografia",
+            "acuidade visual"
+        ],
+        "Assistente de Qualidade": [
+            "qualidade", "ona", "acreditacao"
+        ],
+        "Assistente Comercial": [
+            "crm", "inside sales", "vendas", "negociacao", "comercial"
+        ],
+        "Estágio Fonoaudiologia": [
+            "fonoaudiologia", "neurodesenvolvimento"
+        ],
+    }
 
-    # Regras por conteúdo real encontrado no currículo
-    if "auxiliar administrativo" in texto_normalizado:
-        termos.append("Auxiliar Administrativo")
+    for cargo, sinais in grupos.items():
+        pontos = 0
 
-    if "qualidade" in texto_normalizado:
-        termos.append("Assistente de Qualidade")
+        for sinal in sinais:
+            if normalizar_texto(sinal) in contexto:
+                pontos += 1
 
-    if "recepcao" in texto_normalizado or "recepção" in texto_curriculo.lower():
-        termos.append("Recepcionista")
+        if pontos >= 2:
+            termos.append(cargo)
 
-    if "paciente" in texto_normalizado or "hospital" in texto_normalizado:
-        termos.append("Atendente Hospitalar")
+    return termos
 
-    if "consultorio" in texto_normalizado or "consultório" in texto_curriculo.lower():
-        termos.append("Auxiliar de Consultório")
-
-    if "exames" in texto_normalizado:
-        termos.append("Auxiliar de Exames")
-
-    if "agendamento" in texto_normalizado or "consultas" in texto_normalizado:
-        termos.append("Atendente de Agendamento")
-
-    if "guias" in texto_normalizado:
-        termos.append("Assistente Administrativo Clínica")
-
-    if "crm" in texto_normalizado or "inside sales" in texto_normalizado:
-        termos.append("Assistente Comercial")
-
-    if "vendas" in texto_normalizado or "negociacao" in texto_normalizado:
-        termos.append("Assistente de Vendas")
-
-    if "excel" in texto_normalizado or "planilhas" in texto_normalizado:
-        termos.append("Auxiliar Administrativo Excel")
-
-    if "fonoaudiologia" in texto_normalizado:
-        termos.append("Estágio Fonoaudiologia")
-
-    termos = limpar_termos_busca(termos)
-
-    if not termos:
-        raise ValueError(
-            "Nenhum termo relevante foi encontrado no currículo. "
-            "Verifique se o caminho do currículo no config.ini está correto "
-            "e se o texto do PDF está sendo extraído."
-        )
-
-    return termos[:limite]
-# ==========================================
-# COMPATIBILIDADE COM CÓDIGO ANTIGO
-# ==========================================
 
 def extrair_skills(texto_curriculo):
     return gerar_termos_busca_curriculo(texto_curriculo)
 
 
-# ==========================================
-# LIMPAR TERMOS
-# ==========================================
+def limpar_termo_busca(termo):
+    termo = re.sub(r"[^a-zA-ZÀ-ÿ0-9\s/-]", " ", termo)
+    termo = re.sub(r"\s+", " ", termo).strip()
 
-def limpar_termos_busca(termos):
+    palavras = termo.split()
+
+    if len(palavras) > 5:
+        termo = " ".join(palavras[:5])
+
+    return termo
+
+
+def limpar_lista_termos(termos):
     termos_limpos = []
 
     for termo in termos:
-        termo = limpar_frase(termo)
+        termo = limpar_termo_busca(termo)
 
-        if not termo:
+        if len(termo) < 4:
             continue
 
-        if len(termo) < 3:
+        if termo.lower() in STOPWORDS_PT:
             continue
-
-        if len(termo.split()) > 6:
-            termo = " ".join(termo.split()[:6])
 
         termos_limpos.append(termo)
 
     return remover_duplicados(termos_limpos)
 
-
-# ==========================================
-# REMOVER DUPLICADOS
-# ==========================================
 
 def remover_duplicados(lista):
     vistos = set()
@@ -358,3 +376,13 @@ def remover_duplicados(lista):
             resultado.append(item)
 
     return resultado
+
+
+def contem_numero_telefone_ou_email(texto):
+    if "@" in texto:
+        return True
+
+    if re.search(r"\d{4,}", texto):
+        return True
+
+    return False

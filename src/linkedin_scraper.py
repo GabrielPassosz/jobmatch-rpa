@@ -29,37 +29,12 @@ def iniciar_navegador(headless=False):
 
 
 def gerar_termos_busca_por_skills(skills):
-    skills = [skill.lower() for skill in skills]
+    if not skills:
+        raise ValueError(
+            "Nenhum termo de busca foi gerado a partir do currículo."
+        )
 
-    termos = []
-
-    if "python" in skills and "rpa" in skills:
-        termos.append("Python RPA")
-
-    if "python" in skills and "selenium" in skills:
-        termos.append("Python Selenium")
-
-    if "python" in skills and "excel" in skills:
-        termos.append("Python Excel Automation")
-
-    if "python" in skills and "sql" in skills:
-        termos.append("Python SQL")
-
-    if "streamlit" in skills:
-        termos.append("Python Streamlit")
-
-    if "fiscal" in skills or "sped" in skills or "efd" in skills:
-        termos.append("Automação Fiscal Python")
-
-    if not termos:
-        termos = [
-            "Python Developer",
-            "RPA Developer",
-            "Automation Analyst",
-        ]
-
-    return termos[:5]
-
+    return skills[:8]
 
 def montar_url_busca(termo_busca):
     termo_formatado = quote_plus(termo_busca)

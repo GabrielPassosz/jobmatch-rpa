@@ -78,6 +78,9 @@ try:
             texto_curriculo = extrair_texto_curriculo(
                 caminho_curriculo
             )
+            st.text(
+                texto_curriculo[:5000]
+            )
 
             try:
                 skills_curriculo = extrair_skills(
