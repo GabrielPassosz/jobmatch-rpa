@@ -79,9 +79,14 @@ try:
                 caminho_curriculo
             )
 
-            skills_curriculo = extrair_skills(
-                texto_curriculo
-            )
+            try:
+                skills_curriculo = extrair_skills(
+                    texto_curriculo
+                )
+
+            except Exception as erro:
+                st.error(str(erro))
+                st.stop()
 
         st.subheader("Skills encontradas no currículo")
         st.write(", ".join(skills_curriculo))

@@ -43,6 +43,11 @@ def main():
             texto_curriculo
         )
 
+        if not skills_curriculo:
+            raise ValueError(
+                "Nenhum termo relevante foi encontrado no currículo."
+            )
+
         logger.info(
             f"Skills encontradas: {skills_curriculo}"
         )

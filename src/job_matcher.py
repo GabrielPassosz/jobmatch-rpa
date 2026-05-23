@@ -2,7 +2,6 @@ from pathlib import Path
 import pandas as pd
 
 from src.resume_analyzer import (
-    SKILLS_BASE,
     normalizar_texto,
 )
 
@@ -208,23 +207,21 @@ def extrair_skills_da_vaga(
         texto_vaga
     )
 
+    palavras = texto.split()
+
     skills = []
 
-    for skill in SKILLS_BASE:
+    for palavra in palavras:
 
-        skill_normalizada = (
-            normalizar_texto(skill)
-        )
+        palavra = palavra.strip()
 
-        if skill_normalizada in texto:
+        if len(palavra) < 4:
+            continue
 
-            skills.append(skill)
+        if palavra not in skills:
+            skills.append(palavra)
 
-    return sorted(
-        set(skills)
-    )
-
-
+    return skills
 # ==========================================
 # CALCULAR SCORE
 # ==========================================
