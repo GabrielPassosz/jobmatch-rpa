@@ -23,4 +23,8 @@ def carregar_config():
         "BUSCAR_VAGAS_REAIS": parser.getboolean("LINKEDIN", "BUSCAR_VAGAS_REAIS"),
         "TERMO_BUSCA": parser.get("LINKEDIN", "TERMO_BUSCA"),
         "QUANTIDADE_VAGAS": parser.getint("LINKEDIN", "QUANTIDADE_VAGAS"),
+
+        "USAR_IA": parser.getboolean("GEMINI", "USAR_IA"),
+        "GEMINI_API_KEY": parser.get("GEMINI", "GEMINI_API_KEY"),
+        "MODELO_GEMINI": parser.get("GEMINI", "MODELO"),
     }

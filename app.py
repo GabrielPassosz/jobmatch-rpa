@@ -6,9 +6,10 @@ import plotly.express as px
 import streamlit as st
 
 from src.config_loader import carregar_config
-from src.resume_analyzer import extrair_texto_curriculo, extrair_skills
+from src.resume_analyzer import extrair_texto_curriculo
+from src.gemini_resume_analyzer import analisar_curriculo_com_gemini
 from src.linkedin_scraper import buscar_vagas_por_curriculo
-from src.job_matcher import carregar_vagas, analisar_vagas
+from src.job_matcher import analisar_vagas
 from src.save_jobs_excel import salvar_vagas_excel
 from src.excel_report import salvar_relatorio_excel
 
@@ -20,7 +21,7 @@ st.set_page_config(
 )
 
 st.title("🎯 JobMatch RPA")
-st.caption("Buscador inteligente de vagas por currículo")
+st.caption("Buscador inteligente de vagas por currículo com IA")
 
 try:
     config = carregar_config()
@@ -59,18 +60,14 @@ try:
             int(config["SCORE_AVALIAR"]),
         )
 
-        buscar_linkedin = st.checkbox(
-            "Buscar vagas reais no LinkedIn",
-            value=True,
-        )
-
         executar = st.button(
             "Buscar e analisar vagas",
             type="primary",
         )
 
     st.info(
-        "Clique em **Buscar e analisar vagas** para ler o currículo, buscar vagas no LinkedIn e gerar o ranking."
+        "Clique em **Buscar e analisar vagas** para a IA ler o currículo, "
+        "gerar termos de busca, pesquisar no LinkedIn e montar o ranking."
     )
 
     if executar:
@@ -78,62 +75,80 @@ try:
             texto_curriculo = extrair_texto_curriculo(
                 caminho_curriculo
             )
-            st.text(
-                texto_curriculo[:5000]
+
+        with st.expander("Texto extraído do currículo"):
+            st.text(texto_curriculo[:5000])
+
+        with st.spinner("Analisando currículo com IA..."):
+            dados_ia = analisar_curriculo_com_gemini(
+            texto_curriculo=texto_curriculo,
+            api_key=config["GEMINI_API_KEY"],
+            modelo=config["MODELO_GEMINI"],
+        )
+
+        st.success("Currículo analisado com IA.")
+
+        st.subheader("Perfil identificado pela IA")
+        st.write(dados_ia["perfil_profissional"])
+
+        col_a, col_b = st.columns(2)
+
+        with col_a:
+            st.markdown("**Área principal:**")
+            st.write(dados_ia["area_principal"])
+
+        with col_b:
+            st.markdown("**Nível estimado:**")
+            st.write(dados_ia["nivel_estimado"])
+
+        st.subheader("Cargos-alvo")
+        st.write(", ".join(dados_ia["cargos_alvo"]))
+
+        st.subheader("Termos de busca para LinkedIn")
+        st.write(", ".join(dados_ia["termos_busca_linkedin"]))
+
+        st.subheader("Skills principais")
+        st.write(", ".join(dados_ia["skills_principais"]))
+
+        with st.expander("Justificativa da IA"):
+            st.write(dados_ia["justificativa"])
+
+        termos_busca = dados_ia["termos_busca_linkedin"]
+
+        with st.spinner("Buscando vagas reais no LinkedIn..."):
+            vagas = buscar_vagas_por_curriculo(
+                skills_curriculo=termos_busca,
+                quantidade_por_termo=int(quantidade_por_termo),
+                headless=False,
             )
 
-            try:
-                skills_curriculo = extrair_skills(
-                    texto_curriculo
-                )
-
-            except Exception as erro:
-                st.error(str(erro))
-                st.stop()
-
-        st.subheader("Skills encontradas no currículo")
-        st.write(", ".join(skills_curriculo))
-
-        if buscar_linkedin:
-            with st.spinner("Buscando vagas reais no LinkedIn..."):
-                vagas = buscar_vagas_por_curriculo(
-                    skills_curriculo=skills_curriculo,
-                    quantidade_por_termo=int(quantidade_por_termo),
-                    headless=False,
-                )
-
-            if vagas.empty:
-                st.warning(
-                    "Nenhuma vaga foi coletada no LinkedIn. Tente novamente ou reduza filtros."
-                )
-                st.stop()
-
-            salvar_vagas_excel(
-                vagas=vagas,
-                caminho_excel=caminho_vagas,
+        if vagas.empty:
+            st.warning(
+                "Nenhuma vaga foi coletada no LinkedIn. "
+                "Tente novamente ou reduza a quantidade por termo."
             )
+            st.stop()
 
-            st.success(
-                f"{len(vagas)} vagas coletadas e salvas em {caminho_vagas}"
-            )
+        salvar_vagas_excel(
+            vagas=vagas,
+            caminho_excel=caminho_vagas,
+        )
 
-        else:
-            with st.spinner("Lendo vagas da planilha local..."):
-                vagas = carregar_vagas(
-                    caminho_vagas
-                )
+        st.success(
+            f"{len(vagas)} vagas coletadas e salvas em {caminho_vagas}"
+        )
 
-        with st.spinner("Calculando compatibilidade..."):
+        with st.spinner("Calculando compatibilidade das vagas..."):
             resultados = analisar_vagas(
                 vagas=vagas,
-                skills_curriculo=skills_curriculo,
+                texto_curriculo=texto_curriculo,
+                api_key=config["GEMINI_API_KEY"],
+                modelo=config["MODELO_GEMINI"],
                 score_aplicar=score_aplicar,
                 score_avaliar=score_avaliar,
             )
 
-            df = pd.DataFrame(
-                resultados
-            )
+            df = pd.DataFrame(resultados)
 
         data_execucao = datetime.now().strftime(
             "%Y-%m-%d_%H-%M-%S"
