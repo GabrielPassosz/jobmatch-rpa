@@ -17,272 +17,12 @@ from src.excel_report import salvar_relatorio_excel
 
 st.set_page_config(
     page_title="JobMatch RPA",
-    page_icon="",
+    page_icon="🎯",
     layout="wide",
 )
 
-st.markdown("""
-<style>
-:root {
-    --bg: #07111F;
-    --surface: #0F172A;
-    --surface-soft: #1E293B;
-    --border: rgba(255,255,255,0.08);
-
-    --text: #F8FAFC;
-    --muted: #94A3B8;
-
-    --brand: #2563EB;
-    --brand-2: #3B82F6;
-}
-
-.stApp {
-    background:
-        radial-gradient(circle at top left, rgba(37,99,235,0.18), transparent 30%),
-        radial-gradient(circle at top right, rgba(59,130,246,0.12), transparent 25%),
-        var(--bg);
-}
-header[data-testid="stHeader"] {
-    background: transparent;
-}
-
-div[data-testid="stToolbar"] {
-    display: none;
-}
-
-#MainMenu {
-    visibility: hidden;
-}
-
-footer {
-    visibility: hidden;
-}
-
-.block-container {
-    max-width: 1180px;
-    padding-top: 32px;
-    padding-left: 36px;
-    padding-right: 36px;
-}
-
-section[data-testid="stSidebar"] {
-    background: rgba(18,18,20,0.96);
-    border-right: 1px solid var(--border);
-}
-
-section[data-testid="stSidebar"] label,
-section[data-testid="stSidebar"] h1,
-section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3,
-section[data-testid="stSidebar"] p {
-    color: var(--text) !important;
-}
-
-section[data-testid="stSidebar"] input,
-section[data-testid="stSidebar"] textarea,
-section[data-testid="stSidebar"] [data-baseweb="input"] {
-    background: var(--surface-soft) !important;
-    color: var(--text) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 999px !important;
-}
-
-section[data-testid="stSidebar"] [data-testid="stFileUploader"] {
-    background: var(--surface-soft);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 14px;
-}
-
-.hero-card {
-    padding: 72px 56px;
-    border-radius: 32px;
-    background:
-    linear-gradient(
-        135deg,
-        rgba(37,99,235,0.22),
-        rgba(59,130,246,0.08)
-    ),
-    rgba(15,23,42,0.96);
-    border: 1px solid var(--border);
-    box-shadow: 0 30px 90px rgba(0,0,0,0.35);
-    margin-bottom: 28px;
-}
-
-.hero-card h1 {
-    max-width: 760px;
-    margin: 0 0 22px 0;
-    font-size: 64px;
-    line-height: 1.02;
-    letter-spacing: -0.06em;
-    color: var(--text);
-}
-
-.hero-card p {
-    max-width: 640px;
-    margin: 0 0 34px 0;
-    font-size: 20px;
-    line-height: 1.65;
-    color: var(--muted);
-}
-
-.hero-actions {
-    display: flex;
-    gap: 14px;
-    flex-wrap: wrap;
-}
-
-.primary-pill,
-.secondary-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 46px;
-    padding: 0 22px;
-    border-radius: 999px;
-    font-weight: 700;
-}
-
-.primary-pill {
-    background: linear-gradient(135deg, var(--brand), var(--brand-2));
-    color: white;
-}
-
-.secondary-pill {
-    color: white;
-    border: 1px solid var(--border);
-    background: rgba(255,255,255,0.04);
-}
-
-.section-card {
-    background: rgba(18,18,20,0.88);
-    border: 1px solid var(--border);
-    border-radius: 28px;
-    padding: 34px;
-    margin-bottom: 26px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.22);
-}
-
-.section-card h3 {
-    color: var(--text);
-    font-size: 28px;
-    margin: 0 0 20px 0;
-    letter-spacing: -0.03em;
-}
-
-.feature-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px;
-}
-
-.feature-card {
-    background: var(--surface-soft);
-    border: 1px solid var(--border);
-    border-radius: 22px;
-    padding: 22px;
-}
-
-.feature-card h4 {
-    color: var(--text);
-    margin: 0 0 10px 0;
-    font-size: 18px;
-}
-
-.feature-card p {
-    color: var(--muted);
-    margin: 0;
-    line-height: 1.6;
-    font-size: 15px;
-}
-
-.stButton > button {
-    width: 100%;
-    height: 50px;
-    border-radius: 999px !important;
-    background: linear-gradient(135deg, var(--brand), var(--brand-2)) !important;
-    color: white !important;
-    border: 1px solid transparent !important;
-    font-weight: 800;
-    transition: all .25s ease;
-}
-
-.stButton > button:hover {
-    background: transparent !important;
-    border-color: var(--brand) !important;
-    color: white !important;
-    box-shadow: 0 0 0 4px rgba(168,85,247,0.14);
-    transform: translateY(-1px);
-}
-
-div[data-testid="stMetric"] {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 22px;
-    padding: 18px;
-    color: var(--text);
-}
-
-.stDataFrame,
-div[data-testid="stDataFrame"] {
-    border-radius: 22px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-}
-
-div[data-testid="metric-container"] {
-    background: #0F172A;
-    border: 1px solid rgba(59,130,246,0.15);
-    border-radius: 20px;
-    padding: 20px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.20);
-}
-
-div[data-testid="metric-container"] label {
-    color: #94A3B8 !important;
-}
-
-div[data-testid="metric-container"] div {
-    color: white !important;
-}
-
-div[data-testid="stDataFrame"] {
-    border-radius: 20px;
-    overflow: hidden;
-    border: 1px solid rgba(59,130,246,0.12);
-}
-
-@media (max-width: 900px) {
-    .hero-card {
-        padding: 48px 30px;
-    }
-
-    .hero-card h1 {
-        font-size: 42px;
-    }
-
-    .feature-grid {
-        grid-template-columns: 1fr;
-    }
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-st.markdown("""
-<div class="hero-card">
-    <h1>Encontre vagas que combinam com o seu perfil.</h1>
-    <p>
-        O JobMatch RPA usa inteligência artificial para analisar seu currículo,
-        buscar oportunidades no LinkedIn e montar um ranking com as melhores vagas.
-    </p>
-    <div class="hero-actions">
-        <span class="primary-pill">Analisar currículo</span>
-        <span class="secondary-pill">Buscar oportunidades</span>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
+st.title("🎯 JobMatch RPA")
+st.caption("Buscador inteligente de vagas por currículo com IA")
 
 try:
     config = carregar_config()
@@ -300,7 +40,7 @@ try:
             config["VAGAS"],
         )
 
-        quantidade_por_termo = st.slider(
+        quantidade_por_termo = st.number_input(
             "Quantidade de vagas por termo",
             min_value=1,
             max_value=30,
@@ -332,57 +72,10 @@ try:
             type="primary",
         )
 
-    st.markdown("## Como funciona")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.container(border=True)
-
-        st.markdown("""
-    ### 📄 Currículo
-
-    Anexe seu currículo em PDF, DOCX ou TXT.
-
-    A IA identifica:
-
-    - Perfil profissional
-    - Área de atuação
-    - Senioridade
-    - Cargos-alvo
-    """)
-
-    with col2:
-        st.container(border=True)
-
-        st.markdown("""
-    ### 🔍 Busca Inteligente
-
-    Escolha qualquer localização do mundo.
-
-    O sistema pesquisa:
-
-    - LinkedIn
-    - Vagas compatíveis
-    - Múltiplos termos
-    - Diversas regiões
-    """)
-
-    with col3:
-        st.container(border=True)
-
-        st.markdown("""
-    ### 🤖 Ranking IA
-
-    As vagas são avaliadas automaticamente.
-
-    Você recebe:
-
-    - Score de aderência
-    - Recomendações
-    - Ranking
-    - Relatório Excel
-    """)
+    st.info(
+        "Clique em **Buscar e analisar vagas** para a IA ler o currículo, "
+        "gerar termos de busca, pesquisar no LinkedIn e montar o ranking."
+    )
 
     if executar:
         if arquivo_curriculo is None:
@@ -465,7 +158,7 @@ try:
             caminho_excel=caminho_vagas,
         )
 
-        st.info(
+        st.success(
             f"{len(vagas)} vagas coletadas e salvas em {caminho_vagas}"
         )
 
@@ -500,7 +193,7 @@ try:
             pasta_saida=pasta_saida,
         )
 
-        st.info(
+        st.success(
             f"Relatório Excel gerado: {caminho_relatorio}"
         )
 
