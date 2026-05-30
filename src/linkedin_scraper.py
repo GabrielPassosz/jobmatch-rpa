@@ -6,6 +6,8 @@ import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 
 LINKEDIN_BASE_URL = (
@@ -27,6 +29,25 @@ def iniciar_navegador(headless=False):
 
     return driver
 
+def fechar_modal_login(driver):
+    try:
+        botao = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable(
+                (
+                    By.XPATH,
+                    '//*[@id="base-contextual-sign-in-modal"]/div/section/button'
+                )
+            )
+        )
+
+        botao.click()
+
+        print("✅ Modal de login fechado.")
+        return True
+
+    except Exception:
+        print("ℹ️ Modal de login não apareceu.")
+        return False
 
 def gerar_termos_busca_por_skills(skills):
     if not skills:
@@ -36,19 +57,32 @@ def gerar_termos_busca_por_skills(skills):
 
     return skills[:8]
 
-def montar_url_busca(termo_busca):
+
+
+def montar_url_busca(
+    termo_busca,
+    localizacao="",
+):
     termo_formatado = quote_plus(termo_busca)
 
-    return (
+    url = (
         f"{LINKEDIN_BASE_URL}"
         f"&keywords={termo_formatado}"
     )
+
+    if localizacao:
+        localizacao_formatada = quote_plus(localizacao)
+
+        url += f"&location={localizacao_formatada}"
+
+    return url
 
 
 def buscar_vagas_por_curriculo(
     skills_curriculo,
     quantidade_por_termo=5,
     headless=False,
+    localizacao="",
 ):
     termos_busca = gerar_termos_busca_por_skills(
         skills_curriculo
@@ -68,14 +102,21 @@ def buscar_vagas_por_curriculo(
     try:
         for termo in termos_busca:
             print(f"\nBuscando vagas para: {termo}")
+            
 
             url = montar_url_busca(
-                termo
+                termo_busca=termo,
+                localizacao=localizacao,
             )
 
             driver.get(url)
 
-            time.sleep(5)
+            time.sleep(3)
+
+            if termo == termos_busca[0]:
+                fechar_modal_login(driver)
+
+            time.sleep(2)
 
             vagas = coletar_vagas_pagina(
                 driver=driver,
